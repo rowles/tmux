@@ -83,7 +83,7 @@ spawn_window(struct spawn_context *sc, char **cause)
 	struct window_pane	*wp;
 	struct winlink		*wl;
 	int			 idx = sc->idx;
-	u_int			 sx, sy;
+	u_int			 sx, sy, xpixel, ypixel;
 
 	spawn_log(__func__, sc);
 
@@ -153,8 +153,9 @@ spawn_window(struct spawn_context *sc, char **cause)
 			xasprintf(cause, "couldn't add window %d", idx);
 			return (NULL);
 		}
-		default_window_size(sc->c, s, NULL, &sx, &sy, -1);
-		if ((w = window_create(sx, sy)) == NULL) {
+		default_window_size(sc->c, s, NULL, &sx, &sy, &xpixel, &ypixel,
+		    -1);
+		if ((w = window_create(sx, sy, xpixel, ypixel)) == NULL) {
 			winlink_remove(&s->windows, sc->wl);
 			xasprintf(cause, "couldn't create window %d", idx);
 			return (NULL);
@@ -215,6 +216,7 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	u_int			  hlimit;
 	struct winsize		  ws;
 	sigset_t		  set, oldset;
+	key_code		  key;
 
 	spawn_log(__func__, sc);
 
@@ -335,6 +337,8 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	memset(&ws, 0, sizeof ws);
 	ws.ws_col = screen_size_x(&new_wp->base);
 	ws.ws_row = screen_size_y(&new_wp->base);
+	ws.ws_xpixel = w->xpixel * ws.ws_col;
+	ws.ws_ypixel = w->ypixel * ws.ws_row;
 
 	/* Block signals until fork has completed. */
 	sigfillset(&set);
@@ -376,13 +380,17 @@ spawn_pane(struct spawn_context *sc, char **cause)
 
 	/*
 	 * Update terminal escape characters from the session if available and
-	 * force VERASE to tmux's \177.
+	 * force VERASE to tmux's backspace.
 	 */
 	if (tcgetattr(STDIN_FILENO, &now) != 0)
 		_exit(1);
 	if (s->tio != NULL)
 		memcpy(now.c_cc, s->tio->c_cc, sizeof now.c_cc);
-	now.c_cc[VERASE] = '\177';
+	key = options_get_number(global_options, "backspace");
+	if (key >= 0x7f)
+		now.c_cc[VERASE] = '\177';
+	else
+		now.c_cc[VERASE] = key;
 	if (tcsetattr(STDIN_FILENO, TCSANOW, &now) != 0)
 		_exit(1);
 

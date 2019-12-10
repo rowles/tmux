@@ -740,7 +740,7 @@ input_timer_callback(__unused int fd, __unused short events, void *arg)
 static void
 input_start_timer(struct input_ctx *ictx)
 {
-	struct timeval	tv = { .tv_usec = 100000 };
+	struct timeval	tv = { .tv_sec = 5, .tv_usec = 0 };
 
 	event_del(&ictx->timer);
 	event_add(&ictx->timer, &tv);
@@ -876,7 +876,7 @@ input_set_state(struct window_pane *wp, const struct input_transition *itr)
 void
 input_parse(struct window_pane *wp)
 {
-	struct evbuffer		*evb = wp->event->input;
+	struct evbuffer	*evb = wp->event->input;
 
 	input_parse_buffer(wp, EVBUFFER_DATA(evb), EVBUFFER_LENGTH(evb));
 	evbuffer_drain(evb, EVBUFFER_LENGTH(evb));
@@ -2210,6 +2210,12 @@ input_exit_osc(struct input_ctx *ictx)
 		break;
 	case 4:
 		input_osc_4(ictx, p);
+		break;
+	case 7:
+		if (utf8_isvalid(p)) {
+			screen_set_path(sctx->s, p);
+			server_status_window(ictx->wp->window);
+		}
 		break;
 	case 10:
 		input_osc_10(ictx, p);
