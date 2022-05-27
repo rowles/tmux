@@ -21,13 +21,39 @@
 #include <sys/ioctl.h>
 #include <sys/uio.h>
 
+#include <fnmatch.h>
 #include <limits.h>
 #include <stdio.h>
 #include <termios.h>
 #include <wchar.h>
 
+#ifdef HAVE_EVENT2_EVENT_H
+#include <event2/event.h>
+#include <event2/event_compat.h>
+#include <event2/event_struct.h>
+#include <event2/buffer.h>
+#include <event2/buffer_compat.h>
+#include <event2/bufferevent.h>
+#include <event2/bufferevent_struct.h>
+#include <event2/bufferevent_compat.h>
+#else
+#include <event.h>
+#endif
+
+#ifdef HAVE_MALLOC_TRIM
+#include <malloc.h>
+#endif
+
+#ifdef HAVE_UTF8PROC
+#include <utf8proc.h>
+#endif
+
 #ifndef __GNUC__
 #define __attribute__(a)
+#endif
+
+#ifdef BROKEN___DEAD
+#undef __dead
 #endif
 
 #ifndef __unused
@@ -38,6 +64,9 @@
 #endif
 #ifndef __packed
 #define __packed __attribute__ ((__packed__))
+#endif
+#ifndef __weak
+#define __weak __attribute__ ((__weak__))
 #endif
 
 #ifndef ECHOPRT
@@ -89,8 +118,16 @@ void	warnx(const char *, ...);
 #define _PATH_DEFPATH	"/usr/bin:/bin"
 #endif
 
+#ifndef _PATH_VI
+#define _PATH_VI	"/usr/bin/vi"
+#endif
+
 #ifndef __OpenBSD__
 #define pledge(s, p) (0)
+#endif
+
+#ifndef IMAXBEL
+#define IMAXBEL 0
 #endif
 
 #ifdef HAVE_STDINT_H
@@ -169,6 +206,14 @@ void	warnx(const char *, ...);
 #define O_DIRECTORY 0
 #endif
 
+#ifndef FNM_CASEFOLD
+#ifdef FNM_IGNORECASE
+#define FNM_CASEFOLD FNM_IGNORECASE
+#else
+#define FNM_CASEFOLD 0
+#endif
+#endif
+
 #ifndef INFTIM
 #define INFTIM -1
 #endif
@@ -218,6 +263,13 @@ void	warnx(const char *, ...);
 
 #ifndef HOST_NAME_MAX
 #define HOST_NAME_MAX 255
+#endif
+
+#ifndef CLOCK_REALTIME
+#define CLOCK_REALTIME 0
+#endif
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC CLOCK_REALTIME
 #endif
 
 #ifndef HAVE_FLOCK
@@ -282,6 +334,11 @@ char		*strndup(const char *, size_t);
 void		*memmem(const void *, size_t, const void *, size_t);
 #endif
 
+#ifndef HAVE_GETPEEREID
+/* getpeereid.c */
+int		getpeereid(int, uid_t *, gid_t *);
+#endif
+
 #ifndef HAVE_DAEMON
 /* daemon.c */
 int	 	 daemon(int, int);
@@ -295,6 +352,11 @@ const char	*getprogname(void);
 #ifndef HAVE_SETPROCTITLE
 /* setproctitle.c */
 void		 setproctitle(const char *, ...);
+#endif
+
+#ifndef HAVE_CLOCK_GETTIME
+/* clock_gettime.c */
+int		 clock_gettime(int, struct timespec *);
 #endif
 
 #ifndef HAVE_B64_NTOP
@@ -328,6 +390,11 @@ int		 vasprintf(char **, const char *, va_list);
 char		*fgetln(FILE *, size_t *);
 #endif
 
+#ifndef HAVE_GETLINE
+/* getline.c */
+ssize_t		 getline(char **, size_t *, FILE *);
+#endif
+
 #ifndef HAVE_SETENV
 /* setenv.c */
 int		 setenv(const char *, const char *, int);
@@ -354,6 +421,11 @@ void		*reallocarray(void *, size_t, size_t);
 void		*recallocarray(void *, size_t, size_t, size_t);
 #endif
 
+#ifdef HAVE_SYSTEMD
+/* systemd.c */
+int		 systemd_create_socket(int, char **);
+#endif
+
 #ifdef HAVE_UTF8PROC
 /* utf8proc.c */
 int		 utf8proc_wcwidth(wchar_t);
@@ -361,7 +433,11 @@ int		 utf8proc_mbtowc(wchar_t *, const char *, size_t);
 int		 utf8proc_wctomb(char *, wchar_t);
 #endif
 
-#ifndef HAVE_GETOPT
+#ifdef NEED_FUZZING
+/* tmux.c */
+#define main __weak main
+#endif
+
 /* getopt.c */
 extern int	BSDopterr;
 extern int	BSDoptind;
@@ -375,6 +451,5 @@ int	BSDgetopt(int, char *const *, const char *);
 #define optopt             BSDoptopt
 #define optreset           BSDoptreset
 #define optarg             BSDoptarg
-#endif
 
 #endif /* COMPAT_H */
